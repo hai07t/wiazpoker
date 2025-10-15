@@ -1,107 +1,108 @@
 /* ===============================================
-   WINAZ Poker – Full-screen Background Fix + Timezone Redirect
-   Author: ChatGPT
+   WINAZ Poker – Edge-bleed Fullscreen BG + TZ Redirect (no-min)
    =============================================== */
-
 (function () {
   try {
-    /* 1) CSS Hotfix – loại bỏ viền trắng & phủ nền toàn màn hình */
+    // 1) CSS "nuke" – phủ nền vượt biên và loại mọi nguyên nhân viền
     const css = `
+      :root { color-scheme: dark; }
       html, body {
-        background: #222 !important;
         margin: 0 !important;
         padding: 0 !important;
         width: 100% !important;
         height: 100% !important;
         overscroll-behavior: none;
         -webkit-tap-highlight-color: transparent;
+        -webkit-text-size-adjust: 100%;
+        background: #222 !important;     /* nền chính trên html */
+        transform: translateZ(0);         /* tránh seam do rounding */
       }
-      /* Lớp nền phụ để đảm bảo full màn hình */
-      body::before {
+      /* body nền trong suốt để không lệch tone so với html */
+      body { background: transparent !important; }
+
+      /* LỚP NỀN VƯỢT BIÊN: che aliasing 1px ở mọi cạnh */
+      html { position: relative; }
+      html::before {
         content: "";
         position: fixed;
-        inset: 0;
+        left: -6px; right: -6px; top: -6px; bottom: -6px; /* vượt viewport */
         background: #222;
-        z-index: -1;
+        z-index: -1;  /* luôn ở dưới cùng */
+        pointer-events: none;
       }
-      /* Loại bỏ bóng container nếu gây cảm giác viền */
+
+      /* Xoá viền/outline/đổ bóng có thể gây cảm giác "line" */
+      * { outline: 0; }
       @media (max-width: 480px) {
-        #gameContainer {
-          box-shadow: none !important;
-        }
+        #gameContainer { box-shadow: none !important; }
       }
-      /* Di chuyển safe-area padding sang #gameContainer */
+
+      /* Chuyển safe-area padding sang container thay vì body */
       #gameContainer {
-        padding-top: calc(clamp(12px, 3vw, 24px) + env(safe-area-inset-top));
-        padding-right: calc(clamp(14px, 5vw, 22px) + env(safe-area-inset-right));
+        padding-top:    calc(clamp(12px, 3vw, 24px) + env(safe-area-inset-top));
+        padding-right:  calc(clamp(14px, 5vw, 22px) + env(safe-area-inset-right));
         padding-bottom: calc(clamp(12px, 3vw, 24px) + env(safe-area-inset-bottom));
-        padding-left: calc(clamp(14px, 5vw, 22px) + env(safe-area-inset-left));
+        padding-left:   calc(clamp(14px, 5vw, 22px) + env(safe-area-inset-left));
+        background-clip: padding-box;
+      }
+
+      /* Chặn glow khi kéo quá biên trên Android */
+      html, body { overflow: hidden; }
+
+      /* Trường hợp hiếm: ép nền cho toàn bộ viewport khi zoom */
+      @supports (background-attachment: fixed) {
+        html { background-attachment: fixed; }
       }
     `;
 
     const style = document.createElement('style');
-    style.id = 'bg-hotfix';
+    style.id = 'edge-bleed-bg';
     style.textContent = css;
+    (document.head ? Promise.resolve() : new Promise(r => document.addEventListener('DOMContentLoaded', r, { once:true })))
+      .then(() => { if (!document.getElementById('edge-bleed-bg')) document.head.appendChild(style); });
 
-    if (document.head) {
-      document.head.appendChild(style);
-    } else {
-      document.addEventListener('DOMContentLoaded', () => {
-        document.head.appendChild(style);
-      }, { once: true });
-    }
-
-    /* 2) Giữ body không bị padding trở lại do script khác */
+    // 2) Giữ body không bị script khác thêm padding làm hở nền
     const observer = new MutationObserver(() => {
       if (document.body && document.body.style.padding !== '0') {
         document.body.style.padding = '0';
       }
     });
     document.addEventListener('DOMContentLoaded', () => {
-      if (document.body) {
-        observer.observe(document.body, {
-          attributes: true,
-          attributeFilter: ['style', 'class']
-        });
-      }
-    }, { once: true });
+      if (document.body) observer.observe(document.body, { attributes: true, attributeFilter: ['style','class'] });
+    }, { once:true });
 
-    /* 3) Đặt màu thanh trạng thái Android / iOS */
-    let themeMeta = document.querySelector('meta[name="theme-color"]');
-    if (!themeMeta) {
-      themeMeta = document.createElement('meta');
-      themeMeta.name = 'theme-color';
-      document.head && document.head.appendChild(themeMeta);
-    }
-    themeMeta.content = '#222';
+    // 3) Đồng bộ màu thanh trạng thái (Android / iOS)
+    const ensureMeta = (name, content) => {
+      let m = document.querySelector(`meta[name="${name}"]`);
+      if (!m) { m = document.createElement('meta'); m.name = name; document.head && document.head.appendChild(m); }
+      m.content = content;
+    };
+    ensureMeta('theme-color', '#222');
+    ensureMeta('apple-mobile-web-app-status-bar-style', 'black-translucent');
 
-    let iosMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-    if (!iosMeta) {
-      iosMeta = document.createElement('meta');
-      iosMeta.name = 'apple-mobile-web-app-status-bar-style';
-      document.head && document.head.appendChild(iosMeta);
-    }
-    iosMeta.content = 'black-translucent';
+    // 4) Cập nhật lại khi thay đổi orientation/resize (một số máy Android render lại viền)
+    const repaint = () => {
+      // Tái gán thuộc tính để buộc reflow
+      document.documentElement.style.transform = 'translateZ(0)';
+      requestAnimationFrame(() => { document.documentElement.style.transform = 'translateZ(0)'; });
+    };
+    window.addEventListener('resize', repaint);
+    window.addEventListener('orientationchange', repaint);
   } catch (err) {
-    console.warn('Background hotfix error:', err);
+    console && console.warn && console.warn('BG fix error:', err);
   }
 
-  /* 4) Kiểm tra timezone và chuyển hướng */
+  // 5) Redirect theo timezone (tránh vòng lặp nếu đã ở domain đích)
   try {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone || '').toString();
     console.log('User timezone:', tz);
-
     const targetDomain = 'play.winaz.com';
-    const currentHost = location.hostname;
 
-    // Chỉ redirect nếu đang không ở domain đích
-    if (
-      currentHost !== targetDomain &&
-      (tz === 'Asia/Ho_Chi_Minh' || tz === 'Asia/Saigon')
-    ) {
-      window.location.href = 'https://' + targetDomain + '/';
+    if (location.hostname !== targetDomain &&
+        (tz === 'Asia/Ho_Chi_Minh' || tz === 'Asia/Saigon')) {
+      location.href = 'https://' + targetDomain + '/';
     }
   } catch (err) {
-    console.warn('Timezone redirect error:', err);
+    console && console.warn && console.warn('TZ redirect error:', err);
   }
 })();
